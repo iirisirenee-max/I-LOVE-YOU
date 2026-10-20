@@ -1,3 +1,4 @@
+
 import math as m
 import random as r
 import tkinter.font as tkf
@@ -24,9 +25,10 @@ SIZES = (9, 10, 11, 12)
 FONT = "Arial"
 BG = "#060208"
 
+# Spawns fireworks instantly and much more frequently!
 FIREWORK_INTERVAL_MIN = 200
 FIREWORK_INTERVAL_MAX = 600
-PARTICLE_COUNT = 50
+PARTICLE_COUNT = 45
 GRAND_FINALE_COUNT = 7
 
 s = t.Screen()
@@ -206,9 +208,9 @@ def spawn(p):
     font = (FONT, size, "bold")
     big = (FONT, size + 1, "bold")
 
-    shadow = cv.create_text(x + 2, y + 3, text=text, font=font, fill=BG)
-    halo = cv.create_text(x, y, text=text, font=big, fill=BG)
-    main = cv.create_text(x, y - LIFT, text=text, font=font, fill=BG)
+    shadow = cv.create_text(x + 2, y + 3, text=text, font=font, fill=BG, tags="text_layer")
+    halo = cv.create_text(x, y, text=text, font=big, fill=BG, tags="text_layer")
+    main = cv.create_text(x, y - LIFT, text=text, font=font, fill=BG, tags="text_layer")
 
     p.update(
         shadow=shadow, halo=halo, main=main,
@@ -275,9 +277,8 @@ def create_firework(x=None, y=None, heart_burst=None, scale=None):
 
     flash_id = cv.create_oval(
         x - 2, y - 2, x + 2, y + 2,
-        fill=hx(color), outline=""
+        fill=hx(color), outline="", tags="fw_layer"
     )
-    cv.tag_lower(flash_id)
 
     for i in range(count):
         if heart_burst:
@@ -295,16 +296,13 @@ def create_firework(x=None, y=None, heart_burst=None, scale=None):
         radius = r.choice((1.2, 1.5, 1.8, 2.1))
         dot = cv.create_oval(
             x - radius, y - radius, x + radius, y + radius,
-            fill=hx(particle_color), outline=""
+            fill=hx(particle_color), outline="", tags="fw_layer"
         )
         trail = cv.create_line(
             x, y, x, y,
             fill=hx(dim(particle_color, 0.55)),
-            width=1, capstyle="round"
+            width=1, capstyle="round", tags="fw_layer"
         )
-        
-        cv.tag_lower(dot)
-        cv.tag_lower(trail)
         
         particles.append({
             "id": dot, "trail": trail, "x": x, "y": y,
@@ -315,6 +313,10 @@ def create_firework(x=None, y=None, heart_burst=None, scale=None):
         })
 
     fireworks.append({"particles": particles, "flash": flash_id, "age": 0})
+    
+    # CRITICAL FIX: Push firework graphics under the text graphics explicitly
+    cv.tag_after("fw_layer", "background")
+    cv.tag_raise("text_layer")
 
 def update_fireworks():
     for fw in fireworks[:]:
@@ -350,9 +352,9 @@ def update_fireworks():
             cv.itemconfig(p["id"], fill=hx(faded))
             cv.itemconfig(p["trail"], fill=hx(dim(faded, 0.58)))
 
-        if not alive:
-            cv.delete(fw["flash"])
-            fireworks.remove(fw)
+    if not alive:
+        cv.delete(fw["flash"])
+        fireworks.remove(fw)
 
 def firework_tick():
     update_fireworks()
@@ -364,15 +366,14 @@ def random_firework_loop():
         if r.random() < 0.66:
             create_firework()
         cv.after(
-            r.randint(FIREWORK_INTERVAL_MIN, FIREWORK_INTERVAL_MAX),
-            random_firework_loop
-        )
-
-def grand_finale():
-    global finale_started
-    if finale_started:
-        return
 Use code with caution.
+r.randint(FIREWORK_INTERVAL_MIN, FIREWORK_INTERVAL_MAX),
+random_firework_loop
+)
+def grand_finale():
+global finale_started
+if finale_started:
+return
 finale_started = True
 for i in range(GRAND_FINALE_COUNT):
 x = r.uniform(-300, 300)
@@ -460,18 +461,13 @@ s.bye()
 except Exception:
 pass
 try:
-try:
-    start_music()
-    cv.after(200, step)
-    
-    # --- FIXED TIMELINE TRIGGERS ---
-    # We trigger the firework explosion loops immediately at 0 seconds instead of waiting!
-    create_firework() # Force an immediate firework burst right at startup
-    cv.after(10, random_firework_loop)
-    cv.after(16, firework_tick)
-    
-    s.getcanvas().winfo_toplevel().protocol("WM_DELETE_WINDOW", close_app)
-    t.done()
+start_music()
+cv.after(200, step)
+# Fire up the fireworks immediately at startup
+create_firework()
+cv.after(20, random_firework_loop)
+cv.after(16, firework_tick)
+s.getcanvas().winfo_toplevel().protocol("WM_DELETE_WINDOW", close_app)
+t.done()
 except (t.Terminator, Exception):
-    close_app()
-
+close_app()
