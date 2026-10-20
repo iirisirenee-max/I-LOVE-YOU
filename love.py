@@ -330,9 +330,20 @@ def animate(p):
     return True
 
 
-# -------------------- FIREWORKS --------------------
-# Turtle's canvas uses centered coordinates for this design.
 
+# -------------------- FIREWORKS --------------------
+
+fireworks = []
+finale_started = False
+heart_finished = False
+
+FIREWORK_COLORS = [
+    "#ff3355", "#ff6688", "#ffc078",
+    "#ffb6d9", "#d98cff", "#83cfff", "#ffffff"
+]
+
+PARTICLE_COUNT = 42
+GRAND_FINALE_COUNT = 12
 
 def heart_vector(a):
     x = 16 * (m.sin(a) ** 3)
@@ -342,150 +353,107 @@ def heart_vector(a):
         - 2 * m.cos(3 * a)
         - m.cos(4 * a)
     )
-
     length = m.hypot(x, y) or 1
-    return x / length, -y / length
-
+    return x / length, y / length
 
 def create_firework(x=None, y=None, heart_burst=None, scale=None):
     if x is None:
-        x = r.uniform(-350, 350)
-
+        x = r.uniform(-330, 330)
     if y is None:
-        y = r.uniform(-330, 330)
+        y = r.uniform(-300, 300)
 
     if heart_burst is None:
         heart_burst = r.random() < 0.45
-
     if scale is None:
-        scale = r.uniform(0.8, 1.2)
+        scale = r.uniform(0.8, 1.25)
 
     color = r.choice(FIREWORK_COLORS)
-    count = r.randint(30, PARTICLE_COUNT)
-    particles = []
 
-    # Brief bright centre flash
-    flash_id = cv.create_oval(
-        x - 3, y - 3, x + 3, y + 3,
-        fill=hx(color), outline=""
-    )
+    # One dedicated Turtle draws each burst.
+    pen = t.Turtle(visible=False)
+    pen.speed(0)
+    pen.penup()
+
+    particles = []
+    count = PARTICLE_COUNT
 
     for i in range(count):
         if heart_burst:
             dx, dy = heart_vector(2 * m.pi * i / count)
-            speed = r.uniform(1.7, 3.5) * scale
-            speed *= r.uniform(0.88, 1.12)
+            speed = r.uniform(1.8, 3.6) * scale
         else:
-            angle = (
-                2 * m.pi * i / count
-                + r.uniform(-0.12, 0.12)
-            )
-            speed = r.uniform(1.5, 3.5) * scale
+            angle = 2 * m.pi * i / count
             dx = m.cos(angle)
             dy = m.sin(angle)
-
-        particle_color = mix(
-            color,
-            (1.0, 0.88, 0.68),
-            r.uniform(0, 0.35)
-        )
-
-        radius = r.choice((1.5, 1.8, 2.2, 2.6))
-
-        dot = cv.create_oval(
-            x - radius, y - radius,
-            x + radius, y + radius,
-            fill=hx(particle_color),
-            outline=""
-        )
-
-        trail = cv.create_line(
-            x, y, x, y,
-            fill=hx(dim(particle_color, 0.65)),
-            width=2,
-            capstyle="round"
-        )
+            speed = r.uniform(1.8, 3.6) * scale
 
         particles.append({
-            "id": dot,
-            "trail": trail,
             "x": x,
             "y": y,
+            "old_x": x,
+            "old_y": y,
             "vx": dx * speed,
             "vy": dy * speed,
-            "life": r.randint(40, 65),
-            "maxlife": 65,
-            "color": particle_color,
-            "radius": radius,
-            "gravity": r.uniform(0.025, 0.055),
+            "life": r.randint(35, 55),
+            "maxlife": 55,
+            "color": r.choice([color, color, "#ffe6a6", "#ffffff"]),
         })
 
     fireworks.append({
+        "pen": pen,
         "particles": particles,
-        "flash": flash_id,
+        "color": color,
         "age": 0,
     })
 
-
 def update_fireworks():
     for fw in fireworks[:]:
+        pen = fw["pen"]
+        pen.clear()
         fw["age"] += 1
-
-        if fw["age"] == 4:
-            cv.delete(fw["flash"])
-
         alive = False
 
         for p in fw["particles"]:
             if p["life"] <= 0:
-                cv.delete(p["id"])
-                cv.delete(p["trail"])
                 continue
 
             alive = True
 
-            old_x, old_y = p["x"], p["y"]
+            p["old_x"] = p["x"]
+            p["old_y"] = p["y"]
 
             p["x"] += p["vx"]
             p["y"] += p["vy"]
-            p["vy"] += p["gravity"]
+            p["vy"] -= 0.035
 
-            p["vx"] *= 0.987
-            p["vy"] *= 0.987
+            p["vx"] *= 0.985
+            p["vy"] *= 0.985
             p["life"] -= 1
 
-            cv.coords(
-                p["trail"],
-                old_x, old_y,
-                p["x"], p["y"]
-            )
-
-            cv.coords(
-                p["id"],
-                p["x"] - p["radius"],
-                p["y"] - p["radius"],
-                p["x"] + p["radius"],
-                p["y"] + p["radius"]
-            )
-
             fade = p["life"] / p["maxlife"]
-            faded = dim(p["color"], max(0.08, fade))
 
-            cv.itemconfig(p["id"], fill=hx(faded))
-            cv.itemconfig(
-                p["trail"],
-                fill=hx(dim(faded, 0.65))
-            )
+            # Draw a fading particle trail.
+            pen.penup()
+            pen.goto(p["old_x"], p["old_y"])
+            pen.pendown()
+            pen.pensize(max(1, 2 * fade))
+            pen.pencolor(p["color"])
+            pen.goto(p["x"], p["y"])
+            pen.penup()
+
+            # Draw the glowing particle.
+            pen.goto(p["x"], p["y"])
+            pen.dot(max(2, 5 * fade), p["color"])
 
         if not alive:
-            cv.delete(fw["flash"])
+            pen.clear()
+            pen.hideturtle()
             fireworks.remove(fw)
-
 
 def firework_tick():
     update_fireworks()
-    cv.after(16, firework_tick)
-
+    s.update()
+    cv.after(25, firework_tick)
 
 def random_firework_loop():
     if not finale_started:
@@ -495,13 +463,9 @@ def random_firework_loop():
         )
 
         cv.after(
-            r.randint(
-                FIREWORK_INTERVAL_MIN,
-                FIREWORK_INTERVAL_MAX
-            ),
+            r.randint(350, 800),
             random_firework_loop
         )
-
 
 def grand_finale():
     global finale_started
@@ -513,7 +477,7 @@ def grand_finale():
 
     for i in range(GRAND_FINALE_COUNT):
         x = r.uniform(-300, 300)
-        y = r.uniform(-280, 280)
+        y = r.uniform(-260, 260)
 
         cv.after(
             i * 180,
@@ -525,22 +489,20 @@ def grand_finale():
             )
         )
 
-    cv.after(2600, post_finale_fireworks)
-
+    cv.after(2500, post_finale_fireworks)
 
 def post_finale_fireworks():
     create_firework(
-        x=r.uniform(-350, 350),
-        y=r.uniform(-330, 330),
+        x=r.uniform(-330, 330),
+        y=r.uniform(-300, 300),
         heart_burst=(r.random() < 0.5),
-        scale=r.uniform(0.7, 1.1)
+        scale=r.uniform(0.75, 1.1)
     )
 
     cv.after(
-        r.randint(700, 1500),
+        r.randint(500, 1100),
         post_finale_fireworks
     )
-
 
 # -------------------- SHIMMER --------------------
 
