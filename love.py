@@ -277,8 +277,6 @@ def create_firework(x=None, y=None, heart_burst=None, scale=None):
         x - 2, y - 2, x + 2, y + 2,
         fill=hx(color), outline=""
     )
-    
-    # Send flash background layer to the bottom
     cv.tag_lower(flash_id)
 
     for i in range(count):
@@ -305,7 +303,6 @@ def create_firework(x=None, y=None, heart_burst=None, scale=None):
             width=1, capstyle="round"
         )
         
-        # Send new canvas graphics objects beneath the text heart items layers
         cv.tag_lower(dot)
         cv.tag_lower(trail)
         
@@ -359,7 +356,7 @@ def update_fireworks():
 
 def firework_tick():
     update_fireworks()
-    s.update() # Force update the turtle window screen refresh
+    s.update()
     cv.after(16, firework_tick)
 
 def random_firework_loop():
@@ -367,14 +364,15 @@ def random_firework_loop():
         if r.random() < 0.66:
             create_firework()
         cv.after(
-Use code with caution.
-r.randint(FIREWORK_INTERVAL_MIN, FIREWORK_INTERVAL_MAX),
-random_firework_loop
-)
+            r.randint(FIREWORK_INTERVAL_MIN, FIREWORK_INTERVAL_MAX),
+            random_firework_loop
+        )
+
 def grand_finale():
-global finale_started
-if finale_started:
-return
+    global finale_started
+    if finale_started:
+        return
+Use code with caution.
 finale_started = True
 for i in range(GRAND_FINALE_COUNT):
 x = r.uniform(-300, 300)
