@@ -24,9 +24,9 @@ SIZES = (9, 10, 11, 12)
 FONT = "Arial"
 BG = "#060208"
 
-FIREWORK_INTERVAL_MIN = 700
-FIREWORK_INTERVAL_MAX = 1700
-PARTICLE_COUNT = 34
+FIREWORK_INTERVAL_MIN = 200
+FIREWORK_INTERVAL_MAX = 600
+PARTICLE_COUNT = 50
 GRAND_FINALE_COUNT = 7
 
 s = t.Screen()
@@ -460,11 +460,18 @@ s.bye()
 except Exception:
 pass
 try:
-start_music()
-cv.after(200, step)
-cv.after(650, random_firework_loop)
-cv.after(16, firework_tick)
-s.getcanvas().winfo_toplevel().protocol("WM_DELETE_WINDOW", close_app)
-t.done()
+try:
+    start_music()
+    cv.after(200, step)
+    
+    # --- FIXED TIMELINE TRIGGERS ---
+    # We trigger the firework explosion loops immediately at 0 seconds instead of waiting!
+    create_firework() # Force an immediate firework burst right at startup
+    cv.after(10, random_firework_loop)
+    cv.after(16, firework_tick)
+    
+    s.getcanvas().winfo_toplevel().protocol("WM_DELETE_WINDOW", close_app)
+    t.done()
 except (t.Terminator, Exception):
-close_app()
+    close_app()
+
