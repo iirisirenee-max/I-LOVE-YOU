@@ -1,626 +1,461 @@
 
-import math as m
-import random as r
-import tkinter.font as tkf
+import math
+import random
+import tkinter as tk
+from tkinter import font as tkfont
 from pathlib import Path
-import turtle as t
 
-# Optional music: python -m pip install pygame-ce
 try:
     import pygame
-    PYGAME_AVAILABLE = True
 except ImportError:
     pygame = None
-    PYGAME_AVAILABLE = False
 
+W, H = 900, 800
+BG = '#060208'
 
-# -------------------- DESIGN --------------------
+root = tk.Tk()
+root.title('Love Heart ✨')
 
-WIDTH = 800
-HEIGHT = 800
-SC = 21
-OY = 20
-DURATION = 10
-TICK = 16
-ANIM = 42
-LIFT = 34
-GAP = 7
-SIZES = (9, 10, 11, 12)
-FONT = "Arial"
-BG = "#060208"
-
-FIREWORK_INTERVAL_MIN = 300
-FIREWORK_INTERVAL_MAX = 750
-PARTICLE_COUNT = 45
-GRAND_FINALE_COUNT = 12
-
-s = t.Screen()
-s.setup(WIDTH, HEIGHT)
-s.bgcolor(BG)
-s.title("Love Heart")
-s.tracer(0)
-
-cv = s.getcanvas()
-rng = r.Random()
+canvas = tk.Canvas(
+    root, width=W, height=H,
+    bg=BG, highlightthickness=0
+)
+canvas.pack()
 
 PHRASES = [
-    "I love you", "Seni seviyorum", "Te amo", "Je t'aime",
-    "Ich liebe dich", "Ti amo", "Eu te amo", "Я тебя люблю",
-    "사랑해", "愛してる", "我爱你", "मैं तुमसे प्यार करता हूँ",
-    "Σ' αγαπώ", "Ik hou van jou", "Jag älskar dig", "Kocham cię",
-    "ฉันรักเธอ", "Anh yêu em", "Aku cinta kamu",
-    "Я тебе кохаю", "Mahal kita", "Nakupenda", "Te iubesc",
-    "Miluji tě", "Jeg elsker dig", "Jeg elsker deg",
+    'I love you', 'Seni seviyorum', 'Te amo', "Je t’aime",
+    'Ich liebe dich', 'Ti amo', 'Eu te amo', 'Я тебя люблю',
+    '사랑해', '愛してる', '我爱你', 'मैं तुमसे प्यार करता हूँ',
+    'Σ’ αγαπώ', 'Ik hou van jou', 'Jag älskar dig',
+    'Kocham cię', 'ฉันรักเธอ', 'Anh yêu em',
+    'Aku cinta kamu', 'Я тебе кохаю', 'Mahal kita',
+    'Nakupenda', 'Te iubesc', 'Miluji tě',
+    'Jeg elsker dig', 'Jeg elsker deg'
 ]
 
-FIREWORK_COLORS = [
-    (1.00, 0.12, 0.22),
-    (1.00, 0.32, 0.46),
-    (1.00, 0.66, 0.72),
-    (1.00, 0.72, 0.38),
-    (0.92, 0.20, 0.38),
-    (0.80, 0.38, 1.00),
-    (0.45, 0.72, 1.00),
+COLORS = [
+    '#ff355e', '#ff729f', '#ffb3c6',
+    '#ffd08a', '#d5a2ff', '#92cfff'
 ]
 
-FLASH = (1.0, 0.78, 0.78)
-_fonts = {}
+fonts = {
+    size: tkfont.Font(
+        root=root, family='Arial',
+        size=size, weight='bold'
+    )
+    for size in (9, 10, 11, 12)
+}
 
-
-def font_for(size):
-    if size not in _fonts:
-        _fonts[size] = tkf.Font(
-            root=cv, family=FONT, size=size, weight="bold"
-        )
-    return _fonts[size]
-
+def screen(x, y):
+    return W / 2 + x, H / 2 - y
 
 def heart(a):
-    x = 16 * (m.sin(a) ** 3)
-    y = (
-        13 * m.cos(a)
-        - 5 * m.cos(2 * a)
-        - 2 * m.cos(3 * a)
-        - m.cos(4 * a)
-    )
-    return x * SC, y * SC + OY
-
-
-def hx(c):
-    return "#%02x%02x%02x" % tuple(
-        int(max(0, min(1, v)) * 255) for v in c
+    return (
+        16 * math.sin(a)**3 * 21,
+        (
+            13 * math.cos(a)
+            - 5 * math.cos(2*a)
+            - 2 * math.cos(3*a)
+            - math.cos(4*a)
+        ) * 21 + 20
     )
 
+poly = [
+    heart(2 * math.pi * i / 720)
+    for i in range(720)
+]
 
-def mix(a, b, k):
-    k = max(0.0, min(1.0, k))
-    return tuple(p + (q - p) * k for p, q in zip(a, b))
+edges = list(zip(poly, poly[1:] + poly[:1]))
 
-
-def dim(c, k):
-    return tuple(v * k for v in c)
-
-
-POLY = [heart(2 * m.pi * i / 720) for i in range(720)]
-EDGES = list(zip(POLY, POLY[1:] + POLY[:1]))
-YMAX = max(p[1] for p in POLY)
-YMIN = min(p[1] for p in POLY)
-CY = (YMAX + YMIN) / 2
-
+ymin = min(y for x, y in poly)
+ymax = max(y for x, y in poly)
 
 def spans(y):
     xs = []
 
-    for (x1, y1), (x2, y2) in EDGES:
+    for (x1, y1), (x2, y2) in edges:
         if (y1 <= y < y2) or (y2 <= y < y1):
-            xs.append(x1 + (y - y1) * (x2 - x1) / (y2 - y1))
+            xs.append(
+                x1 + (y-y1)*(x2-x1)/(y2-y1)
+            )
 
     xs.sort()
-    return list(zip(xs[0::2], xs[1::2]))
+    return list(zip(xs[::2], xs[1::2]))
 
+def build_words():
+    words = []
 
-def intersect(A, B):
-    out = []
-
-    for a in A:
-        for b in B:
-            lo = max(a[0], b[0])
-            hi = min(a[1], b[1])
-
-            if hi - lo > 14:
-                out.append((lo, hi))
-
-    return out
-
-
-def phrase_cycle():
-    while True:
-        order = PHRASES[:]
-        rng.shuffle(order)
-        yield from order
-
-
-def math_dist(x, y):
-    return m.hypot(x / (16 * SC), (y - CY) / (14.5 * SC))
-
-
-def build():
-    cycle = phrase_cycle()
-    row_h = max(
-        font_for(z).metrics("linespace") for z in SIZES
+    row_height = max(
+        f.metrics('linespace')
+        for f in fonts.values()
     ) + 4
 
-    half = row_h / 2
-    placed = []
-    y = YMAX - half
+    y = ymax - row_height / 2
 
-    while y > YMIN + half:
-        row = intersect(
-            spans(y + half),
-            spans(y - half)
-        )
+    while y > ymin + row_height / 2:
+        upper = spans(y + row_height / 2)
+        lower = spans(y - row_height / 2)
 
-        for lo, hi in row:
-            lo += 4
-            hi -= 4
-            cur = lo + rng.uniform(0, 8)
-            line = []
+        for a, b in upper:
+            for c, d in lower:
+                lo = max(a, c) + 4
+                hi = min(b, d) - 4
 
-            while True:
-                fit = None
+                if hi - lo < 25:
+                    continue
 
-                for _ in range(12):
-                    text = next(cycle)
-                    size = rng.choice(SIZES)
-                    w = font_for(size).measure(text)
+                x = lo + random.uniform(0, 8)
+                line = []
 
-                    if cur + w <= hi:
-                        fit = (text, size, w)
+                for _ in range(80):
+                    candidates = [
+                        (p, z, fonts[z].measure(p))
+                        for p in random.sample(
+                            PHRASES, len(PHRASES)
+                        )
+                        for z in random.sample(
+                            list(fonts), len(fonts)
+                        )
+                    ]
+
+                    fit = next(
+                        (
+                            (p, z, w)
+                            for p, z, w in candidates
+                            if x + w <= hi
+                        ),
+                        None
+                    )
+
+                    if fit is None:
                         break
 
-                if not fit:
-                    break
+                    p, z, w = fit
+                    line.append([x+w/2, p, z, w])
+                    x += w + 7
 
-                text, size, w = fit
-                line.append([cur + w / 2, text, size, w])
-                cur += w + GAP
+                if len(line) > 1:
+                    extra = hi - (
+                        line[-1][0] + line[-1][3]/2
+                    )
 
-            if not line:
-                continue
+                    for i, item in enumerate(line):
+                        item[0] += (
+                            extra*i/(len(line)-1)
+                        )
 
-            if len(line) > 1:
-                left = hi - (
-                    line[-1][0] + line[-1][3] / 2
-                )
+                elif line:
+                    line[0][0] = (lo+hi)/2
 
-                for i, item in enumerate(line):
-                    item[0] += left * i / (len(line) - 1)
-            else:
-                line[0][0] = (lo + hi) / 2
+                for cx, p, z, w in line:
+                    words.append((cx, y, p, z))
 
-            for i, (x, text, size, w) in enumerate(line):
-                placed.append({
-                    "x": x,
-                    "y": y,
-                    "text": text,
-                    "size": size,
-                    "edge": i == 0 or i == len(line) - 1,
-                })
+        y -= row_height
 
-        y -= row_h
+    random.shuffle(words)
+    return words
 
-    wine = (0.58, 0.0, 0.09)
-    crimson = (0.90, 0.05, 0.14)
-    blood = (0.98, 0.10, 0.16)
+words = build_words()
+text_items = []
+word_index = 0
+fireworks = []
+finale = False
+finished = False
 
-    for p in placed:
-        rad = min(1.0, math_dist(p["x"], p["y"]))
-        base = mix(wine, crimson, 0.25 + 0.75 * rad)
-        base = mix(
-            base,
-            blood,
-            min(
-                1.0,
-                r.uniform(0, 0.35)
-                + (0.3 if p["edge"] else 0)
-            )
+# ---------------- HEART ANIMATION ----------------
+
+def spawn_word():
+    global word_index, finished
+
+    for _ in range(
+        max(1, math.ceil(len(words)/150))
+    ):
+        if word_index >= len(words):
+            break
+
+        x, y, phrase, size = words[word_index]
+        word_index += 1
+
+        px, py = screen(x, y)
+
+        item = canvas.create_text(
+            px, py-30,
+            text=phrase,
+            font=fonts[size],
+            fill='#16060b',
+            tags='word'
         )
 
-        p["color"] = tuple(min(1, v) for v in base)
-        p["rad"] = rad
-
-    edges = [p for p in placed if p["edge"]]
-    inner = [p for p in placed if not p["edge"]]
-
-    edges.sort(
-        key=lambda p: m.atan2(p["x"], p["y"] - CY) % (2 * m.pi)
-    )
-    inner.sort(
-        key=lambda p: -p["rad"] + r.uniform(0, 0.08)
-    )
-
-    return edges + inner
-
-
-# -------------------- ANIMATION STATE --------------------
-
-BGC = tuple(
-    int(BG[i:i + 2], 16) / 255 for i in (1, 3, 5)
-)
-
-main_ids = []
-active = []
-fireworks = []
-finale_started = False
-heart_finished = False
-
-
-def clamp(v):
-    return max(0.0, min(1.0, v))
-
-
-def spawn(p):
-    x, y = p["x"], -p["y"]
-    size = p["size"]
-    text = p["text"]
-    color = p["color"]
-
-    font = (FONT, size, "bold")
-    big = (FONT, size + 1, "bold")
-
-    shadow = cv.create_text(
-        x + 2, y + 3, text=text, font=font, fill=BG
-    )
-    halo = cv.create_text(
-        x, y, text=text, font=big, fill=BG
-    )
-    main = cv.create_text(
-        x, y - LIFT, text=text, font=font, fill=BG
-    )
-
-    p.update({
-        "shadow": shadow,
-        "halo": halo,
-        "main": main,
-        "f": 0,
-        "dx": r.uniform(-10, 10),
-    })
-
-    main_ids.append((main, color))
-    active.append(p)
-
-
-def math_sin(v):
-    return m.sin(m.pi * v)
-
-
-def animate(p):
-    p["f"] += 1
-    u = clamp(p["f"] / ANIM)
-    e = 1 - (1 - u) ** 3
-
-    color = p["color"]
-    x, y = p["x"], -p["y"]
-    hover = (1 - e) * LIFT
-    px = x + p["dx"] * (1 - e)
-    py = y - hover
-
-    cv.itemconfig(
-        p["shadow"],
-        fill=hx(mix(BGC, dim(color, 0.30), e))
-    )
-    cv.itemconfig(
-        p["halo"],
-        fill=hx(mix(BGC, dim(color, 0.20), e * e))
-    )
-    cv.coords(p["halo"], px, py)
-
-    flash = 0.75 * math_sin(clamp((u - 0.55) / 0.45))
-    col = mix(mix(BGC, color, e ** 1.5), FLASH, flash)
-
-    cv.itemconfig(p["main"], fill=hx(col))
-    cv.coords(p["main"], px, py)
-
-    if u >= 1:
-        cv.coords(p["halo"], x, y)
-        cv.coords(p["main"], x, y)
-        cv.itemconfig(p["main"], fill=hx(color))
-        return False
-
-    return True
-
-
-
-# -------------------- FIREWORKS --------------------
-
-fireworks = []
-finale_started = False
-heart_finished = False
-
-FIREWORK_COLORS = [
-    "#ff3355", "#ff6688", "#ffc078",
-    "#ffb6d9", "#d98cff", "#83cfff", "#ffffff"
-]
-
-PARTICLE_COUNT = 42
-GRAND_FINALE_COUNT = 12
-
-def heart_vector(a):
-    x = 16 * (m.sin(a) ** 3)
-    y = (
-        13 * m.cos(a)
-        - 5 * m.cos(2 * a)
-        - 2 * m.cos(3 * a)
-        - m.cos(4 * a)
-    )
-    length = m.hypot(x, y) or 1
-    return x / length, y / length
-
-def create_firework(x=None, y=None, heart_burst=None, scale=None):
-    if x is None:
-        x = r.uniform(-330, 330)
-    if y is None:
-        y = r.uniform(-300, 300)
-
-    if heart_burst is None:
-        heart_burst = r.random() < 0.45
-    if scale is None:
-        scale = r.uniform(0.8, 1.25)
-
-    color = r.choice(FIREWORK_COLORS)
-
-    # One dedicated Turtle draws each burst.
-    pen = t.Turtle(visible=False)
-    pen.speed(0)
-    pen.penup()
-
-    particles = []
-    count = PARTICLE_COUNT
-
-    for i in range(count):
-        if heart_burst:
-            dx, dy = heart_vector(2 * m.pi * i / count)
-            speed = r.uniform(1.8, 3.6) * scale
-        else:
-            angle = 2 * m.pi * i / count
-            dx = m.cos(angle)
-            dy = m.sin(angle)
-            speed = r.uniform(1.8, 3.6) * scale
-
-        particles.append({
-            "x": x,
-            "y": y,
-            "old_x": x,
-            "old_y": y,
-            "vx": dx * speed,
-            "vy": dy * speed,
-            "life": r.randint(35, 55),
-            "maxlife": 55,
-            "color": r.choice([color, color, "#ffe6a6", "#ffffff"]),
+        text_items.append({
+            'id': item,
+            'x': px,
+            'y': py,
+            'age': 0,
+            'color': random.choice([
+                '#b70d28', '#d31a32',
+                '#ec3047', '#ff5366'
+            ])
         })
 
-    fireworks.append({
-        "pen": pen,
-        "particles": particles,
-        "color": color,
-        "age": 0,
-    })
+    for p in text_items[:]:
+        p['age'] += 1
+        k = min(1, p['age']/36)
 
-def update_fireworks():
-    for fw in fireworks[:]:
-        pen = fw["pen"]
-        pen.clear()
-        fw["age"] += 1
-        alive = False
-
-        for p in fw["particles"]:
-            if p["life"] <= 0:
-                continue
-
-            alive = True
-
-            p["old_x"] = p["x"]
-            p["old_y"] = p["y"]
-
-            p["x"] += p["vx"]
-            p["y"] += p["vy"]
-            p["vy"] -= 0.035
-
-            p["vx"] *= 0.985
-            p["vy"] *= 0.985
-            p["life"] -= 1
-
-            fade = p["life"] / p["maxlife"]
-
-            # Draw a fading particle trail.
-            pen.penup()
-            pen.goto(p["old_x"], p["old_y"])
-            pen.pendown()
-            pen.pensize(max(1, 2 * fade))
-            pen.pencolor(p["color"])
-            pen.goto(p["x"], p["y"])
-            pen.penup()
-
-            # Draw the glowing particle.
-            pen.goto(p["x"], p["y"])
-            pen.dot(max(2, 5 * fade), p["color"])
-
-        if not alive:
-            pen.clear()
-            pen.hideturtle()
-            fireworks.remove(fw)
-
-def firework_tick():
-    update_fireworks()
-    s.update()
-    cv.after(25, firework_tick)
-
-def random_firework_loop():
-    if not finale_started:
-        create_firework(
-            heart_burst=(r.random() < 0.45),
-            scale=r.uniform(0.8, 1.2)
+        canvas.coords(
+            p['id'],
+            p['x'],
+            p['y'] - 30*(1-(1-k)**3)
         )
 
-        cv.after(
-            r.randint(350, 800),
-            random_firework_loop
+        if k < .3:
+            color = '#63101c'
+        elif k < .7:
+            color = '#ac1930'
+        else:
+            color = p['color']
+
+        canvas.itemconfigure(
+            p['id'], fill=color
+        )
+
+        if k >= 1:
+            text_items.remove(p)
+
+    if word_index < len(words) or text_items:
+        root.after(35, spawn_word)
+
+    elif not finished:
+        finished = True
+        root.after(450, grand_finale)
+        root.after(200, shimmer)
+
+# ---------------- FIREWORKS ----------------
+
+def heart_point(a):
+    return (
+        16*math.sin(a)**3/18,
+        (
+            13*math.cos(a)
+            - 5*math.cos(2*a)
+            - 2*math.cos(3*a)
+            - math.cos(4*a)
+        )/18
+    )
+
+def burst(x=None, y=None, shape=None, power=1):
+    if x is None:
+        x = random.uniform(80, W-80)
+
+    if y is None:
+        y = random.uniform(80, H-80)
+
+    if shape is None:
+        shape = random.random() < .42
+
+    base = random.choice(COLORS)
+    particles = []
+    n = 42
+
+    for i in range(n):
+        a = 2*math.pi*i/n
+
+        if shape:
+            dx, dy = heart_point(a)
+            speed = random.uniform(
+                2.3, 3.3
+            ) * power
+            vx, vy = dx*speed, -dy*speed
+
+        else:
+            speed = random.uniform(
+                2.2, 4.0
+            ) * power
+            vx = math.cos(a)*speed
+            vy = math.sin(a)*speed
+
+        col = random.choice([
+            base, base,
+            '#ffe4ad', '#ffffff'
+        ])
+
+        dot = canvas.create_oval(
+            x-2, y-2, x+2, y+2,
+            fill=col,
+            outline='',
+            tags='firework'
+        )
+
+        trail = canvas.create_line(
+            x, y, x, y,
+            fill=col,
+            width=2,
+            tags='firework'
+        )
+
+        particles.append({
+            'dot': dot,
+            'trail': trail,
+            'x': x,
+            'y': y,
+            'vx': vx,
+            'vy': vy,
+            'life': random.randint(35, 55),
+            'color': col
+        })
+
+    fireworks.append(particles)
+
+    # Fireworks stay behind the words.
+    canvas.tag_lower('firework', 'word')
+
+def tick_fireworks():
+    for group in fireworks[:]:
+        living = False
+
+        for p in group:
+            if p['life'] <= 0:
+                continue
+
+            living = True
+
+            ox, oy = p['x'], p['y']
+
+            p['x'] += p['vx']
+            p['y'] += p['vy']
+            p['vy'] += .045
+            p['vx'] *= .985
+            p['life'] -= 1
+
+            x, y = p['x'], p['y']
+
+            canvas.coords(
+                p['dot'],
+                x-2, y-2, x+2, y+2
+            )
+
+            canvas.coords(
+                p['trail'],
+                ox, oy, x, y
+            )
+
+            if p['life'] < 15:
+                canvas.itemconfigure(
+                    p['dot'], fill='#532334'
+                )
+                canvas.itemconfigure(
+                    p['trail'], fill='#351620'
+                )
+
+        if not living:
+            for p in group:
+                canvas.delete(p['dot'])
+                canvas.delete(p['trail'])
+
+            fireworks.remove(group)
+
+    root.after(25, tick_fireworks)
+
+def random_bursts():
+    if not finale:
+        burst()
+
+        root.after(
+            random.randint(500, 900),
+            random_bursts
         )
 
 def grand_finale():
-    global finale_started
+    global finale
+    finale = True
 
-    if finale_started:
-        return
-
-    finale_started = True
-
-    for i in range(GRAND_FINALE_COUNT):
-        x = r.uniform(-300, 300)
-        y = r.uniform(-260, 260)
-
-        cv.after(
-            i * 180,
-            lambda x=x, y=y, i=i: create_firework(
-                x=x,
-                y=y,
-                heart_burst=(i % 2 == 0),
-                scale=r.uniform(0.9, 1.35)
+    for i in range(14):
+        root.after(
+            i*140,
+            lambda i=i: burst(
+                shape=(i % 2 == 0),
+                power=1.3
             )
         )
 
-    cv.after(2500, post_finale_fireworks)
+    root.after(2600, after_finale)
 
-def post_finale_fireworks():
-    create_firework(
-        x=r.uniform(-330, 330),
-        y=r.uniform(-300, 300),
-        heart_burst=(r.random() < 0.5),
-        scale=r.uniform(0.75, 1.1)
+def after_finale():
+    burst()
+
+    root.after(
+        random.randint(750, 1300),
+        after_finale
     )
 
-    cv.after(
-        r.randint(500, 1100),
-        post_finale_fireworks
-    )
-
-# -------------------- SHIMMER --------------------
-
-def _safe(item_id, color):
-    try:
-        cv.itemconfig(item_id, fill=hx(color))
-    except Exception:
-        pass
-
+# ---------------- SHIMMER ----------------
 
 def shimmer():
-    if not main_ids:
-        cv.after(140, shimmer)
-        return
+    ids = canvas.find_withtag('word')
 
-    item_id, color = r.choice(main_ids)
+    if ids:
+        item = random.choice(ids)
+        old = canvas.itemcget(item, 'fill')
 
-    _safe(item_id, mix(color, FLASH, 0.6))
+        canvas.itemconfigure(
+            item, fill='#ffb9be'
+        )
 
-    cv.after(
-        260,
-        lambda i=item_id, c=color: _safe(i, c)
+        root.after(
+            180,
+            lambda: canvas.itemconfigure(
+                item, fill=old
+            )
+        )
+
+    root.after(240, shimmer)
+
+# ---------------- MUSIC ----------------
+
+def music():
+    path = (
+        Path(__file__).resolve().parent
+        / 'angel.mp3'
     )
-    cv.after(140, shimmer)
 
-
-# -------------------- MUSIC --------------------
-
-def start_music():
-    if not PYGAME_AVAILABLE:
-        print("Music skipped: install pygame-ce to enable music.")
+    if pygame is None:
+        print(
+            'Install pygame-ce for music.'
+        )
         return
 
-    audio_path = Path(__file__).resolve().parent / "angel.mp3"
-
-    if not audio_path.is_file():
-        print(f"Music file not found: {audio_path}")
+    if not path.exists():
+        print('Music not found:', path)
         return
 
     try:
         pygame.mixer.init()
-        pygame.mixer.music.load(str(audio_path))
-        pygame.mixer.music.set_volume(0.42)
+        pygame.mixer.music.load(str(path))
+        pygame.mixer.music.set_volume(.42)
         pygame.mixer.music.play(-1)
-    except Exception as exc:
-        print(f"Music error: {exc}")
 
+    except Exception as e:
+        print('Music error:', e)
 
-# -------------------- HEART ANIMATION --------------------
+# ---------------- CLOSE WINDOW ----------------
 
-ORDER = build()
-items = iter(ORDER)
-RATE = len(ORDER) / (DURATION * 1000 / TICK)
-
-acc = 0.0
-spawning = True
-
-
-def step():
-    global spawning, acc, heart_finished
-
-    if spawning:
-        acc += RATE
-
+def close():
+    if pygame is not None:
         try:
-            while acc >= 1:
-                acc -= 1
-                spawn(next(items))
-        except StopIteration:
-            spawning = False
-
-    active[:] = [p for p in active if animate(p)]
-
-    if not spawning and not active:
-        if not heart_finished:
-            heart_finished = True
-            cv.after(500, grand_finale)
-
-        shimmer()
-        return
-
-    cv.after(TICK, step)
-
-
-# -------------------- SAFE EXIT --------------------
-
-def close_app():
-    try:
-        if PYGAME_AVAILABLE:
             pygame.mixer.music.stop()
             pygame.mixer.quit()
-    except Exception:
-        pass
+        except Exception:
+            pass
 
-    try:
-        s.bye()
-    except Exception:
-        pass
+    root.destroy()
 
+# ---------------- START PROGRAM ----------------
 
-# -------------------- START --------------------
+root.protocol('WM_DELETE_WINDOW', close)
 
-try:
-    start_music()
-    cv.create_oval(390, 390, 410, 410, fill="hotpink", outline="")
-cv.create_text(400, 360, text="FIREWORK TEST", fill="white")
+music()
 
-    # Start the heart, fireworks and particle animation.
-    cv.after(200, step)
-    cv.after(500, random_firework_loop)
-    cv.after(16, firework_tick)
+root.after(100, spawn_word)
+root.after(250, random_bursts)
+root.after(25, tick_fireworks)
 
-    s.getcanvas().winfo_toplevel().protocol(
-        "WM_DELETE_WINDOW", close_app
-    )
-
-    t.done()
-
-except (t.Terminator, Exception) as exc:
-    print(f"Animation stopped: {exc}")
-    close_app()
+root.mainloop()
