@@ -645,6 +645,8 @@ def close_app():
 
 try:
     start_music()
+    cv.create_oval(390, 390, 410, 410, fill="hotpink", outline="")
+cv.create_text(400, 360, text="FIREWORK TEST", fill="white")
 
     # Start the heart, fireworks and particle animation.
     cv.after(200, step)
