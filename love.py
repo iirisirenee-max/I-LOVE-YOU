@@ -269,9 +269,9 @@ return x / length, -y / length
 
 def create_firework(x=None, y=None, heart_burst=None, scale=None):
 if x is None:
-x = r.uniform(115, 685)
+    x = r.uniform(-350, 350)
 if y is None:
-y = r.uniform(130, 650)
+    y = r.uniform(-330, 330)
 
 ```
 if heart_burst is None:
@@ -383,8 +383,8 @@ finale_started = True
 
 ```
 for i in range(GRAND_FINALE_COUNT):
-    x = r.uniform(165, 635)
-    y = r.uniform(165, 635)
+    x = r.uniform(-300, 300)
+    y = r.uniform(-280, 280)
     cv.after(
         i * 210,
         lambda x=x, y=y, i=i: create_firework(
@@ -398,8 +398,8 @@ cv.after(2400, post_finale_fireworks)
 def post_finale_fireworks():
 if r.random() < 0.5:
 create_firework(
-x=r.uniform(125, 675),
-y=r.uniform(125, 675),
+x=r.uniform(-350, 350),
+y=r.uniform(-330, 330),
 heart_burst=(r.random() < 0.45),
 scale=r.uniform(0.65, 0.95)
 )
