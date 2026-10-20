@@ -25,9 +25,9 @@ SIZES = (9, 10, 11, 12)
 FONT = "Arial"
 BG = "#060208"
 
-# Spawns fireworks instantly and much more frequently!
-FIREWORK_INTERVAL_MIN = 200
-FIREWORK_INTERVAL_MAX = 600
+# Super high frequency firework timing configuration
+FIREWORK_INTERVAL_MIN = 150
+FIREWORK_INTERVAL_MAX = 450
 PARTICLE_COUNT = 45
 GRAND_FINALE_COUNT = 7
 
@@ -90,6 +90,7 @@ def mix(a, b, k):
 def dim(c, k):
     return tuple(v * k for v in c)
 
+# Fix tuple unpacking for YMAX/YMIN boundaries
 POLY = [heart(2 * m.pi * i / 720) for i in range(720)]
 EDGES = list(zip(POLY, POLY[1:] + POLY[:1]))
 YMAX = max(p[1] for p in POLY)
@@ -196,6 +197,7 @@ BGC = tuple(int(BG[i:i + 2], 16) / 255 for i in (1, 3, 5))
 main_ids = []
 active = []
 fireworks = []
+all_text_ids = [] # Global collection tracking text entities
 finale_started = False
 heart_finished = False
 
@@ -208,15 +210,16 @@ def spawn(p):
     font = (FONT, size, "bold")
     big = (FONT, size + 1, "bold")
 
-    shadow = cv.create_text(x + 2, y + 3, text=text, font=font, fill=BG, tags="text_layer")
-    halo = cv.create_text(x, y, text=text, font=big, fill=BG, tags="text_layer")
-    main = cv.create_text(x, y - LIFT, text=text, font=font, fill=BG, tags="text_layer")
+    shadow = cv.create_text(x + 2, y + 3, text=text, font=font, fill=BG)
+    halo = cv.create_text(x, y, text=text, font=big, fill=BG)
+    main = cv.create_text(x, y - LIFT, text=text, font=font, fill=BG)
 
     p.update(
         shadow=shadow, halo=halo, main=main,
         f=0, dx=r.uniform(-10, 10)
     )
     main_ids.append((main, c))
+    all_text_ids.extend([shadow, halo, main])
     active.append(p)
 
 def math_sin(v):
@@ -277,8 +280,12 @@ def create_firework(x=None, y=None, heart_burst=None, scale=None):
 
     flash_id = cv.create_oval(
         x - 2, y - 2, x + 2, y + 2,
-        fill=hx(color), outline="", tags="fw_layer"
+        fill=hx(color), outline=""
     )
+    
+    # Direct z-indexing via physical numeric entity identifiers
+    if all_text_ids:
+        cv.tag_lower(flash_id, all_text_ids[0])
 
     for i in range(count):
         if heart_burst:
@@ -296,13 +303,18 @@ def create_firework(x=None, y=None, heart_burst=None, scale=None):
         radius = r.choice((1.2, 1.5, 1.8, 2.1))
         dot = cv.create_oval(
             x - radius, y - radius, x + radius, y + radius,
-            fill=hx(particle_color), outline="", tags="fw_layer"
+            fill=hx(particle_color), outline=""
         )
         trail = cv.create_line(
             x, y, x, y,
             fill=hx(dim(particle_color, 0.55)),
-            width=1, capstyle="round", tags="fw_layer"
+            width=1, capstyle="round"
         )
+        
+        # Explicit z-indexing drops visual components underneath tracking string items
+        if all_text_ids:
+            cv.tag_lower(dot, all_text_ids[0])
+            cv.tag_lower(trail, all_text_ids[0])
         
         particles.append({
             "id": dot, "trail": trail, "x": x, "y": y,
@@ -313,10 +325,6 @@ def create_firework(x=None, y=None, heart_burst=None, scale=None):
         })
 
     fireworks.append({"particles": particles, "flash": flash_id, "age": 0})
-    
-    # CRITICAL FIX: Push firework graphics under the text graphics explicitly
-    cv.tag_after("fw_layer", "background")
-    cv.tag_raise("text_layer")
 
 def update_fireworks():
     for fw in fireworks[:]:
@@ -354,19 +362,17 @@ def update_fireworks():
 
     if not alive:
         cv.delete(fw["flash"])
-        fireworks.remove(fw)
-
-def firework_tick():
-    update_fireworks()
-    s.update()
-    cv.after(16, firework_tick)
-
-def random_firework_loop():
-    if not finale_started:
-        if r.random() < 0.66:
-            create_firework()
-        cv.after(
 Use code with caution.
+fireworks.remove(fw)
+def firework_tick():
+update_fireworks()
+s.update()
+cv.after(16, firework_tick)
+def random_firework_loop():
+if not finale_started:
+if r.random() < 0.75:
+create_firework()
+cv.after(
 r.randint(FIREWORK_INTERVAL_MIN, FIREWORK_INTERVAL_MAX),
 random_firework_loop
 )
@@ -463,7 +469,7 @@ pass
 try:
 start_music()
 cv.after(200, step)
-# Fire up the fireworks immediately at startup
+# Initialize background execution engine timelines explicitly at zero milliseconds
 create_firework()
 cv.after(20, random_firework_loop)
 cv.after(16, firework_tick)
@@ -471,3 +477,4 @@ s.getcanvas().winfo_toplevel().protocol("WM_DELETE_WINDOW", close_app)
 t.done()
 except (t.Terminator, Exception):
 close_app()
+
